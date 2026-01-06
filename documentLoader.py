@@ -2,6 +2,35 @@ import os
 import fitz # PyMuPDF for PDFs
 import docx
 
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# Cargar el modelo de embeddings
+embedding_model = HuggingFaceEmbeddings(model_name = "sentence-transformers/all-mpnet-base-v2")
+
+def process_document(file_path):
+    """Extraer texto, cortarlo, y convertirlo a embeddings"""
+    text = extract_text(file_path)
+
+    if not text:
+        return None
+    
+    # Cortar el texto en trozos pequeños para mejor rendimiento en busqueda
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size = 500, chunk_overlap = 50)
+    texts = text_splitter.split_text(text)
+
+    return texts
+
+
+def store_embeddings(texts, db_path = "chroma_db"):
+    """Almacena texto embeddings en ChromaDB"""
+    vectorStore = Chroma(collection_name="documents", persist_directory=db_path, embedding_function=embedding_model)
+    vectorStore.add_texts(texts)
+
+    print("Embeddings almacenados correctamente!")
+
+
 def extract_text_from_pdf(pdf_path):
     """Extraer texto de un archivo PDF"""
     text = ""
@@ -49,9 +78,18 @@ def extract_text(file_path):
         print(f"Formato de archivo no soportado: {file_path}")
 
 
+
 # Ejemplo de uso
 if __name__ == "__main__":
-    sample_pdf = "./documentos/48 leyes del Poder.pdf"
-    sample_word = "./documentos/Tech Support & Problem Solving Workshop.docx"
-    sample_txt = "./documentos/Direcciones USA.txt"
-    print(extract_text(sample_txt))
+    sample_file = "./documentos/48 leyes del Poder.pdf"
+    texts = process_document(sample_file)
+    if texts:
+        store_embeddings(texts)
+
+
+# # Ejemplo de uso
+# if __name__ == "__main__":
+#     sample_pdf = "./documentos/48 leyes del Poder.pdf"
+#     sample_word = "./documentos/Tech Support & Problem Solving Workshop.docx"
+#     sample_txt = "./documentos/Direcciones USA.txt"
+#     print(extract_text(sample_txt))

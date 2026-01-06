@@ -2,6 +2,10 @@ fastapi
 uvicorn
 langchain
 chromadb
+sentence_transformers
+langchain-huggingface
+langchain-chroma
+langchain-text-splitters
 pymupdf
 python-docx
 pypdf
