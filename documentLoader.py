@@ -31,6 +31,22 @@ def store_embeddings(texts, db_path = "chroma_db"):
     print("Embeddings almacenados correctamente!")
 
 
+def search_documents(query, db_path="chroma_db"):
+    """Busca embeddings almacenados en ChromaDB"""
+    vectorstore = Chroma(persist_directory=db_path, embedding_function=embedding_model)
+    results = vectorstore.similarity_search(query, k=5) # Recupera 5 coincidencias
+    
+    if not results:
+        print("No se encontraron resultados para tu consulta.")
+        return
+
+    for idx, result in enumerate(results):
+        print(f"\n Resultado {idx + 1}:")
+        print(result.page_content)
+
+    return results
+
+
 def extract_text_from_pdf(pdf_path):
     """Extraer texto de un archivo PDF"""
     text = ""
@@ -81,11 +97,16 @@ def extract_text(file_path):
 
 # Ejemplo de uso
 if __name__ == "__main__":
-    sample_file = "./documentos/48 leyes del Poder.pdf"
+    sample_file = "./documentos/Logica y razonamiento.pdf"
     texts = process_document(sample_file)
     if texts:
         store_embeddings(texts)
 
+    while True:
+        user_query = input("Ingresa tu consulta de busqueda (o 'salir' para terminar): ")
+        if user_query.lower() == 'salir':
+            break
+        search_documents(user_query)
 
 # # Ejemplo de uso
 # if __name__ == "__main__":
