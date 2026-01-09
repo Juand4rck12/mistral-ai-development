@@ -33,8 +33,8 @@ def store_embeddings(texts, db_path = "chroma_db"):
 
 def search_documents(query, db_path="chroma_db"):
     """Busca embeddings almacenados en ChromaDB"""
-    vectorstore = Chroma(persist_directory=db_path, embedding_function=embedding_model)
-    results = vectorstore.similarity_search(query, k=5) # Recupera 5 coincidencias
+    vectorStore = Chroma(collection_name="documents", persist_directory=db_path, embedding_function=embedding_model)
+    results = vectorStore.similarity_search(query, k=5) # Recupera 5 coincidencias
     
     if not results:
         print("No se encontraron resultados para tu consulta.")
@@ -106,7 +106,7 @@ if __name__ == "__main__":
         user_query = input("Ingresa tu consulta de busqueda (o 'salir' para terminar): ")
         if user_query.lower() == 'salir':
             break
-        search_documents(user_query)
+        results = search_documents(user_query)
 
 # # Ejemplo de uso
 # if __name__ == "__main__":
