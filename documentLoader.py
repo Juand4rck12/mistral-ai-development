@@ -1,10 +1,43 @@
-import os
+import os, requests
 import fitz # PyMuPDF for PDFs
 import docx
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# Ollama endpoint
+OLLAMA_API_URL = "http://localhost:11434/api/generate"
+
+def generate_ai_response(context, query):
+    """Envar consulta del usuario junto con los documentos recuperados a Mistral AI para RAG"""
+    prompt = f"""
+    Eres un asistente de IA con acceso a la siguiente información:
+    {context}
+    Basandote en eso, responde la siguiente consulta:
+    {query}
+    """
+
+    payload = {"model": "mistral", "prompt": prompt, "stream": False}
+    response = requests.post(OLLAMA_API_URL, json=payload)
+
+    return response.json().get("response", "No se genero una respuesta")
+
+
+def search_and_generate_response(query, db_path="chroma_db"):
+    """Recuperar documentos relevantes y usar Mistral AI para respuesta contextual"""
+    vectorStore = Chroma(collection_name="documents", persist_directory=db_path, embedding_function=embedding_model)
+    results = vectorStore.similarity_search(query, k=3)
+
+    # Combinar documentos recuperados en contexto
+    context = "\n\n".join([doc.page_content for doc in results])
+
+    # Generar respuesta de IA usando RAG
+    ai_response = generate_ai_response(context, query)
+
+    print("\nRespuesta con IA:")
+    print(ai_response)
+
 
 # Cargar el modelo de embeddings
 embedding_model = HuggingFaceEmbeddings(model_name = "sentence-transformers/all-mpnet-base-v2")
@@ -106,7 +139,8 @@ if __name__ == "__main__":
         user_query = input("Ingresa tu consulta de busqueda (o 'salir' para terminar): ")
         if user_query.lower() == 'salir':
             break
-        results = search_documents(user_query)
+        # results = search_documents(user_query)
+        search_and_generate_response(user_query)
 
 # # Ejemplo de uso
 # if __name__ == "__main__":
