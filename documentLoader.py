@@ -6,6 +6,86 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from langchain_ollama import ChatOllama
+from langchain_community.document_loaders import TextLoader
+from langchain.tools import tool
+from langchain.agents import create_agent
+from langchain.agents.middleware import dynamic_prompt, ModelRequest
+
+
+# Cargar el modelo de embeddings (definido antes de usar en funciones)
+embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+
+
+def search_and_summarize(query, db_path="chroma_db"):
+    """RAG moderno con LangChain v1 + Chroma + Mistral usando create_agent"""
+    
+    # Cargar ChromaDB
+    vectorstore = Chroma(
+        collection_name="documents",
+        persist_directory=db_path,
+        embedding_function=embedding_model
+    )
+    
+    # Crear herramienta de recuperación de contexto
+    @tool(response_format="content_and_artifact")
+    def retrieve_context(search_query: str):
+        """Recupera información relevante de la base de datos para responder consultas."""
+        retrieved_docs = vectorstore.similarity_search(search_query, k=3)
+        serialized = "\n\n".join(
+            f"Contenido: {doc.page_content}"
+            for doc in retrieved_docs
+        )
+        return serialized, retrieved_docs
+    
+    # Middleware para inyectar contexto dinámicamente
+    @dynamic_prompt
+    def prompt_with_context(request: ModelRequest) -> str:
+        """Inyecta contexto recuperado en el prompt del sistema."""
+        last_query = request.state["messages"][-1].text if hasattr(request.state["messages"][-1], 'text') else str(request.state["messages"][-1])
+        retrieved_docs = vectorstore.similarity_search(last_query, k=3)
+        
+        docs_content = "\n\n".join(doc.page_content for doc in retrieved_docs)
+        
+        system_message = (
+            "Eres un asistente de IA útil. Usa SOLO la información del contexto para responder. "
+            "Si no sabes la respuesta, di que no está en el contexto."
+            f"\n\nContexto:\n{docs_content}"
+        )
+        
+        return system_message
+    
+    # Inicializar modelo Ollama Mistral con URL explícita
+    mistral_model = ChatOllama(
+        model="mistral",
+        base_url="http://127.0.0.1:11434"  # Usar 127.0.0.1 en lugar de localhost
+    )
+    
+    # Crear agente con middleware de RAG
+    agent = create_agent(
+        model=mistral_model,
+        tools=[retrieve_context],
+        middleware=[prompt_with_context],
+        system_prompt=(
+            "Eres un asistente que responde preguntas basándose en el contexto proporcionado. "
+            "Usa la herramienta retrieve_context si necesitas buscar información adicional."
+        )
+    )
+    
+    # Invocar el agente
+    response = agent.invoke({"messages": [{"role": "user", "content": query}]})
+    
+    print("\nRespuesta con IA:")
+    print(response["messages"][-1].content if hasattr(response["messages"][-1], 'content') else response["messages"][-1])
+    
+    # Mostrar fuentes si están disponibles
+    retrieved_docs = vectorstore.similarity_search(query, k=3)
+    print("\nFuentes:")
+    for doc in retrieved_docs:
+        print(f"- {doc.page_content[:300]}...")
+
+
+
 # Ollama endpoint
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 
@@ -38,9 +118,6 @@ def search_and_generate_response(query, db_path="chroma_db"):
     print("\nRespuesta con IA:")
     print(ai_response)
 
-
-# Cargar el modelo de embeddings
-embedding_model = HuggingFaceEmbeddings(model_name = "sentence-transformers/all-mpnet-base-v2")
 
 def process_document(file_path):
     """Extraer texto, cortarlo, y convertirlo a embeddings"""
@@ -140,7 +217,8 @@ if __name__ == "__main__":
         if user_query.lower() == 'salir':
             break
         # results = search_documents(user_query)
-        search_and_generate_response(user_query)
+        # search_and_generate_response(user_query)
+        search_and_summarize(user_query)
 
 # # Ejemplo de uso
 # if __name__ == "__main__":
