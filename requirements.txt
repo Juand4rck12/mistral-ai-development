@@ -1,11 +1,15 @@
 fastapi
 uvicorn
-langchain
+langchain>=1.0.0
+langchain-core>=0.3.0
 chromadb
 sentence_transformers
 langchain-huggingface
 langchain-chroma
+langchain-community
+langchain-ollama
 langchain-text-splitters
+langgraph
 pymupdf
 python-docx
 pypdf
