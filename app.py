@@ -116,4 +116,56 @@ def search_and_generate_response(request: QueryRequest):
 # Endpoint principal
 @app.get("/")
 def home():
-    return {"message": "Mistral AI-powered search API is running!"}
+    return {
+        "message": "Sistema RAG Local con Mistral AI",
+        "status": "operativo",
+        "endpoints": {
+            "home": "GET /",
+            "query": "POST /query",
+            "health": "GET /health",
+            "document_count": "GET /document-count"
+        }
+    }
+
+
+# Endpoint health
+@app.get("/health")
+def health_check():
+    """Verificar estado del sistema"""
+    try:
+        # Verificar conexión con Ollama
+        llm.invoke("ping")
+
+        # Verificar ChromaDB
+        count = vectorstore._collection.count()
+
+        return {
+            "status": "healthy",
+            "ollama": "connected",
+            "chromadb": "connected",
+            "document_count": count
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
+    
+
+# Endpoint para conteo de documentos
+@app.get("/document-count")
+def get_document_count():
+    """Obtener número de documentos en la base de datos"""
+    count = vectorstore._collection.count()
+    return {"document_count": count}
+
+
+# ================ PUNTO DE ENTRADA ================
+if __name__ == "__main__":
+    import uvicorn
+    print("\n" + "="*60)
+    print("Iniciando servidor RAG en http://localhost:8000")
+    print("Base de datos: ./chroma_db")
+    print("Modelo: Mistral via Ollama")
+    print("="*60 + "\n")
+    uvicorn.run(app)
