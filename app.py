@@ -6,19 +6,31 @@ from langchain_ollama import ChatOllama
 from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain.agents.middleware import dynamic_prompt, ModelRequest
+import os
 
 # Inicializar FastAPI APP
-app = FastAPI()
+app = FastAPI(title="Sistema RAG Local", version="1.0.0")
+
+# Verificar si chromaDB existe
+CHROMA_DIR = "./chroma_db"
+if not os.path.exists(CHROMA_DIR) or not os.listdir(CHROMA_DIR):
+    raise RuntimeError(
+        "ChromaDB No encontrada. Ejecuta primero: python index_document.py\n"
+        "para indexar documentos antes de inciar la aplicación."
+    )
 
 # Cargar modelo via ollama
+print("--- Cargando modelo Mistral via Ollama ---")
 llm = ChatOllama(
     model="mistral",
     base_url="http://127.0.0.1:11434"
 )
 
 # Cargar el modelo de embeddings
-embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+print("--- Cargando modelo de Embeddings ---")
+embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
+print("--- Cargando base de datos vectorial ---")
 # Cargar ChromaDB
 vectorstore = Chroma(
     collection_name="documents",
@@ -73,15 +85,16 @@ def create_rag_agent():
 
     return agent
 
-
+print("--- Inicializando agente de IA... ---")
 agent = create_rag_agent()
+print("--- Agente de IA inicializado correctamente. ---")
 
 
 # Definir la clase para solicitud
 class QueryRequest(BaseModel):
     query: str
 
-
+# Endpoint de consulta
 @app.post("/query")
 def search_and_generate_response(request: QueryRequest):
     """Recupera documentos y genera respuestas con IA usando agente moderno."""
